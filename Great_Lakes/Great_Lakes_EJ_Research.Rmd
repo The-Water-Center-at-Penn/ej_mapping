@@ -1,0 +1,271 @@
+---
+title: "Environmental Justice Mapping in the Great Lakes States"
+author: "Richard Barad, Water Center at Penn"
+date: "2023-11-20"
+output:
+  pdf_document:
+    latex_engine: xelatex
+urlcolor: blue
+mainfont: Times New Roman
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+```
+
+``` {r import_libraries}
+library(tidycensus)
+library(tidyverse)
+library(sf)
+library(grid)
+library(gridExtra)
+library(urltools)
+library(viridis)
+library(httr2)
+```
+
+``` {r census_api}
+census_api_key("4b917a3ebce557bc497aebb5aba1b04f0ff9c5ba",overwrite=TRUE)
+```
+
+# Background
+
+This memo provides background on environmental justice mapping efforts in Ohio, Michigan and Wisconsin. The information was compiled as input to the Engaging on the Equitable Distribution of Federal Clean Water Infrastructure Funds in Great Lakes States project which the Water Center at Penn is working on in collaboration with American Rivers with generous funding from the Charles Stewart Mott Foundation. The project aims to map overlap between green water infrastructure projects and environmental justice areas. 
+
+A key consideration for this work will be deciding what dataset will be used for identifying environmental Justice Areas. For similar work in the Delaware Basin the Water Center at PENN and American Rivers relied heavily on state level Environmental justice mapping work in Pennsylvania, New Jersey, and Delaware. However, statewide environmental justice mapping work is not available for some of the target states in the Great Lakes region. Preliminary research finds that state level environmental justice mapping is available in Michigan, but is not available in Wisconsin and Ohio. Thus, it may be necessary to use a mixed approach whereby state level mapping is used in Michigan, and federal mapping is used in Ohio and Wisconsin. Alternatively, a federal dataset could also be used in all three states. 
+
+# Ohio
+
+Research efforts could not locate state level environmental justice mapping for Ohio. Several state agencies in Ohio have provided some guidance around how to determine if an area is an environmental justice area. The Ohio Department of Transportation uses a tool called the [Transportation Mapping System](https://gis.dot.state.oh.us/tims/) which allows them to overlay transportation project locations on top of demographic indicators. Based on the guidance published on their [website](https://www.transportation.ohio.gov/programs/environmental-services/manuals-guidance-landing/environmental-justice-guidance) it appears that this platform is using U.S Census Data to identify if minority and low-income populations are present within a project study area. This approach is similar to the approach taken under the old environmental justice policy in Pennsylvania in which only demographic and socio-economic factors are considered when determining if an area is considered an environmental justice area. 
+
+Another example of environmental justice mapping in Ohio is present at the local/city level. An [article](https://energynews.us/2022/05/25/mapping-tools-help-ohio-cities-chart-course-for-environmental-justice/) from 2022 published by Energy News Network notes that Ohio cities are using mapping to respond to inequalities in energy burden, climate risks, and pollution impacts. Specifically, cities in Cleveland, Columbus, and Cincinnati are using a tool called the [Greenlink Equity Map](https://www.equitymap.org/about-gem), which was built by Greenlink Analytics a 501(c)(3) non-profit organization based in Atlanta, Georgia. The Greenlink platform provides information on where people have trouble paying bills, health burdens like asthma cases, evictions, and other environmental justice and socioeconomic factors. The article notes that Greenlink hopes the tool will be used by cities to help with identifying areas in need of federal infrastructure funds. Greenlink data is currently only available for select cities, and does not cover the entire state of Ohio. 
+
+In summary, Ohio does not have not appear to have a state level EJ Map. The Ohio Department of Environmental Protection open data portal does not contain any datasets pertaining to Environmental Justice. As mentioned, guidance from the Department of Transportation only considers demographic factors when identifying EJ Areas. A report from 2016 states that EJ impacts of a project need to be considered if either the minority or the low-income populations are at 40 percent or above. 
+
+# Wisconsin
+
+The Wisconsin Economic Development Corporation (WEDC), Wisconsin Department of Administration (DOA), Wisconsin Department of Health Services (DHS) and the Wisconsin Department of Natural Resources (DNR) are currently working on building a platform called the Wisconsin Environmental Equity Tool (WEET). The WEET will be a web-based environmental justice and health equity mapping tool. The tool is intended to help state agencies, municipal leaders, and the general public identify areas with the greatest environmental and public health burdens. The state government agencies are currently soliciting public feedback on the datasets to include in the tool. They reference examples from California, Maryland, and Washington state as examples which Wisconsin wishes to model. In addition to the work on WEET, the governor’s [Executive Order #161](https://evers.wi.gov/Documents/EO/EO161-OEJ.pdf) created the State’s first Office of Environmental Justice.
+
+Available online resources do not specify a timeline for when the WEET will be completed and available for public usage. Given the uncertainty, it is likely that the upcoming mapping work will need to leverage federal environmental justice datasets for Wisconsin. 
+
+# Michigan
+
+Michigan is the only one of the three states which has an existing environmental justice platform. The Michigan tool is called [MiEJScreen](https://www.michigan.gov/egle/maps-data/miejscreen) and it identifies Michigan communities that may be disproportionately impacted by environmental hazards. MiEJScreen was developed by the Michigan Office of the Environmental Justice Public Advocate in collaboration with the Michigan Interagency Environmental Justice Response Team Data and Research Work group. When building MiEJScreen, the team considered best practices used in other EJ screening tools around the U.S. The MiEJScreen approach is very similar to the approach used in both California's CalEnviroScreen application and Pennsylvania's PennEnviroScreen application. 
+
+MiEJScreen includes four different components: Environmental Exposure, Environmental Effects, Sensitive Populations, and Socioeconomic effects. Each component includes multiple indicators. For example, the socioeconomic component considers the low income population, minority populations, educational attainment, linguistic isolation, Population under 5, Population over 64, Unemployment rate, and housing burden. The MIEJScreen index is calculated at the census tract level. The final index considers all four components, and the index is presented as a percentile relative to the other census tracts in the state. The census tract with lowest MIEJScreen index value in the state will get a percentile value of zero, while the census tract with the highest MIEJScreen index value will get a percentile value of 100.
+
+The map below shows the final EJ Index percentiles for Michigan. The tracts with the highest EJ scores are located in the Detroit metro area. One challenge with the MiEJScreen is that the dataset does not appear to specify a specific treshold above which an area is considered an environmental justice area. 
+
+``` {r get_michigan_data, results='hide'}
+
+mi_url <- 'https://services1.arcgis.com/FNjlrOFR0aGJ71Tg/arcgis/rest/services/MiEJscreenScore4_WL/FeatureServer/0/query'
+
+mi_url_full <- urltools::param_set(mi_url,key="where", value="1=1") %>%
+                  param_set(key='f', value = 'geojson') %>%
+                  param_set(key="outFields", value="*")
+
+mi_df <- st_read(mi_url_full)
+
+MI_counties <- st_read('https://gisagocss.state.mi.us/arcgis/rest/services/OpenData/michigan_geographic_framework/MapServer/0/query?where=1%3D1&f=geojson')
+```
+
+``` {r, michigan_map, fig}
+ggplot()+
+  geom_sf(data=mi_df,aes(fill=MiEJScorePL),color='transparent')+
+  geom_sf(data=MI_counties,color='grey60',fill='transparent')+
+  scale_fill_gradient(low='lightyellow',high='darkgreen',name='Michigan EJ Score Percentile')+
+  theme_void()
+```
+
+``` {r get_ohio_counties, results='hide'}
+
+oh_counties <- st_read('https://gis.dot.state.oh.us/arcgis/rest/services/TIMS/Boundaries/MapServer/2/query?where=1%3D1&f=geojson')
+
+oh_EJScreen <- st_read('https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/EJScreen_2_21_State_Percentiles_Block_Groups/FeatureServer/0/query?where=STATE_NAME%3D%27ohio%27&f=geojson&outFields=EXCEED_COUNT_80,STATE_NAME,EXCEED_COUNT_80_SUP')
+
+#Note CJEST DATA is not available via API so downloaded a national shapefile. The shapefile is downloadable here: https://screeningtool.geoplatform.gov/en/downloads
+
+oh_cjest <- st_read('./CEJST/usa.shp') %>%
+  dplyr::filter(SF == 'Ohio') %>%
+  dplyr::filter(CC > 0)
+```
+
+``` {r census_wrangling}
+acs_variables <- c('B02001_001', #Total Pop
+                   'B02001_002', #White Pop
+                   'B17017_001', #Total Households
+                   'B17017_002'  #Households in Poverty
+               )
+
+OH_census_data <- get_acs(geography='block group',
+                          variables = acs_variables,
+                          year = 2021,
+                          state='OH',
+                          geometry = TRUE,
+                          output='wide') %>%
+  rename(
+    Total_Pop = B02001_001E,
+    White_Pop = B02001_002E,
+    Total_HH = B17017_001E,
+    Poverty_HH = B17017_002E
+  ) %>%
+  dplyr::select(-starts_with('B')) %>%
+  mutate(pct_white = (White_Pop / Total_Pop) *100,
+         pct_poverty = (Poverty_HH / Total_HH) * 100) %>%
+  dplyr::filter(pct_white <= 60 | pct_poverty >= 40)
+```
+
+```{r read_CDC_data, results='hide'}
+
+palette = c('#f3ffb5','#c2e699','#78c679','#31a354','#006837')
+
+baseURL_EJI <- "https://onemap.cdc.gov/OneMapServices/rest/services/EJI/Environmental_Justice_Index_2022/FeatureServer/64/query"
+
+OHquery_EJI <- urltools::param_set(baseURL_EJI,key="where", value="StateAbbr='OH'") %>%
+                  param_set(key='f', value = 'geojson') %>%
+                  param_set(key="outFields", value="RPL_EJI")
+
+OH_CDC_EJI_Index <- st_read(OHquery_EJI) 
+
+baseURL_SVI <- "https://onemap.cdc.gov/OneMapServices/rest/services/SVI/SVI_consolidated_data/FeatureServer/0/query"
+
+OHquery_SVI <- urltools::param_set(baseURL_SVI,key='where', value="ReleaseYear=2020+AND+Comparison='state'+AND+GeoLevel='tract'+AND+(+FIPS+like+'39%'+)") %>%
+                  param_set(key='f', value = 'geojson') %>%
+                  param_set(key="outFields", value="Overall_SVI_Percentile")
+
+OH_CDC_SVI_Index <- st_read(OHquery_SVI)
+
+```
+
+# Using Federal Datasets 
+
+Because Ohio and Wisconsin do not have state level EJ Mapping, it will likely be necessary to use national level datasets to support our work. The section below provides an overview of the different federal datasets which can be used to support the identification of EJ areas. Maps showing what each dataset looks like in Ohio are presented. Similar maps for Wisconsin and Michigan can be produced as needed.  
+
+## American Community Survey Data, U.S. Census Bureau
+
+The simplest dataset which can be used to help identify Environmental Justice areas is data from the U.S Census. Specifically, the American Community Survey which is published on an annual basis. As mentioned previously, the Ohio Department of Transportation states the EJ impacts of a project need to be considered if either the minority or the low-income populations are at 40 percent or above. The Census map below shows areas of Ohio where these thresholds are met based on 2017-2021 5 year ACS data. A definition based on just ACS data was previously used by the Pennsylvania Department of Environmental Protection to identify environmental justice areas prior to the adoption of the PennEnviroScreen index.
+
+``` {r test_map1}
+ggplot()+
+  geom_sf(data=oh_counties,fill='grey90')+
+  geom_sf(data=OH_census_data,aes(fill='Minority Pop > 40% or Poverty Rate > 40%'),color='transparent')+
+  scale_fill_manual(values='darkgreen',name='Census Data',
+                    guide = guide_legend(direction = "horizontal",
+                                        title.position = "top"))+
+  geom_sf(data=oh_counties,fill='transparent',color='grey70')+
+  ggtitle("Census Data")+
+  theme_void()+
+  theme(legend.position="bottom")
+```
+
+
+## Environmental Protection Agency (EPA)
+
+The EPA provides two types of Environmental Justice Indexes - the Environmental Justice Indexes and the Environmental Justice Supplemental Indexes.
+
+### EPA Environmental Justice (EJ) Indexes**
+
+The EPA EJ Indexes represent a combination of environmental and socioeconomic information and are calculated at the block group level. There are 13 different indexes which each represent a different environmental indicator. Some examples of indicators include Ozone, Air Toxic Cancer Risk, Traffic Proximity, Superfund Proximity, and Lead Paint Risk. Each EJ index represents a combination of the index and two socioeconomic variables (low-income population, and people of color). A specific EJ Index will be highest if it has a high presence of the environmental risk indicator, a large low-income population, and a large percent of the population which are people of color. The EJ Indexes do not combine various environmental factors into a single index - each EJ index stands on its own. 
+
+For early applications of the EJ Indexes, the EPA determined that an area in which any of the 13 EJ Indexes are at or above the 80th percentile should be considered as a potential area to examine more closely for environmental justice issues. Being above the 80th percentile threshold does not designate an area as an EJ community. The EJ indexes are intended to be screening tools and are not intended to be used for determining the existence or absence of EJ concerns. 
+
+The EJ Screen index map below shows data for Ohio at the Block Group level. Any block group in which one of the indexes exceeds the 80 percentile are colored green. Block groups where a larger number of EJ Indexes exceed the 80 percent threshold are colored in a darker shade of green.
+
+``` {r test_map2}
+ggplot()+
+  geom_sf(data=oh_counties,fill='grey90')+
+  geom_sf(data=oh_EJScreen %>% dplyr::filter(EXCEED_COUNT_80 > 0),aes(fill= cut(EXCEED_COUNT_80, breaks = c(0,1,5,8,10,13))),color='transparent')+
+  scale_fill_manual(values = palette, labels = c('1','2-5','5-8','9-10','10-13'),name="EJ Indexes above 80th percentile",
+                                        guide = guide_legend(direction = "horizontal",
+                                                              title.position = "top"))+
+  geom_sf(data=oh_counties,fill='transparent',color='grey70')+
+  theme_minimal()+
+  ggtitle("EPA EJ Screen Index")+
+  theme_void()+
+  theme(legend.position="bottom")
+```
+
+### EPA Environmental Justice (EJ) Supplemental Indexes
+
+The EJ supplemental indexes are calculated the same way as the EJ index. However, the supplemental indexes use a different mix of variables when considering socio-economic factors. The supplemental indexes include the % Low Income, % Unemployed, % Limited English Speaking, % Less than High School Education, and Low Life Expectancy as the socioeconomic variables. In the Ohio context, using the wider range of socioeconomic variables tends to result in a larger number of rural census blocks getting flagged. Similar to the EJ Indexes, the supplemental indexes are also not intended to be used to designate an area as an EJ community. 
+
+The EJ supplemental index map below also shows data for Ohio at the block group level. Any block group in which one of the supplemental indexes exceeds the 80 percentile are colored green. Block groups where a larger percentage of EJ Indexes exceed the 80 percent threshold are colored in a darker shade of green.
+
+``` {r test_map3}
+ggplot()+
+  geom_sf(data=oh_counties,fill='grey90')+
+  geom_sf(data=oh_EJScreen %>% dplyr::filter(EXCEED_COUNT_80_SUP > 0),aes(fill= cut(EXCEED_COUNT_80_SUP, breaks = c(0,1,5,8,10,13))),color='transparent')+
+  scale_fill_manual(values = palette, labels = c('1','2-5','5-8','9-10','10-13'),name="EJ Supplemental Indexs above 80th percentile",
+                    guide = guide_legend(direction = "horizontal",
+                                         title.position = "top"))+
+  geom_sf(data=oh_counties,fill='transparent',color='grey70')+
+  ggtitle("EPA EJ Screen Supplemental Index")+
+  theme_void()+
+  theme(legend.position="bottom")
+```  
+
+## Climate and Env. Justice Screening Tool (CEJST)
+
+The Climate and Environmental Justice Screening Tool was developed by the Council on Environmental Quality (CEQ), following the passing of [Executive Order 14008](https://www.federalregister.gov/documents/2021/02/01/2021-02177/tackling-the-climate-crisis-at-home-and-abroad#:~:text=Sec.%20223.%20Justice40,40-percent%20goal). The tool includes eight burden categories: Climate Change, Energy, Health, Housing, Legacy Pollution, Transportation, Water, Wastewater, and workforce development which are each made up of multiple indicators. Federal agencies are supposed to use CEJST to help identify communities which are eligible to receive funding through the Justice40 Initiative.
+
+The CEJST mapping is done at the tract level. A tract is considered environmentally disadvantaged according to a burden category if it is **at or above** the 90th percentile for any indicators within the burden category **AND** is at or above the 65th percentile for low income population. Tracts are considered to be burdened if they meet the thresholds for at least one of the tools burden categories *OR* are on land within the boundaries of federally recognized Indian tribes. The CEJST methodology has been criticized by environmental justice advocates for not explicitly including race as an indicator. The Chair of CEQ has noted that this was done to allow the tool to survive legal challenges and other indicators which are included act as a proxy for race. A key difference between CJEST and the EPA EJ Indexes is that CJEST is designed to identify disadvantaged communities, while the EPA Indexes serve as just a screening tool.
+
+The map of the CEJST tool below shows areas in Ohio which are classified as environmentally burdened using CEJST criteria. A gradient is used to show the number of burden categories the tract is classified as burdened according to. Note that CEJST considers all areas which meet the thresholds for at least one of the burden categories to be environmentally burdened.  
+
+``` {r test_map4}
+ggplot()+
+  geom_sf(data=oh_counties,fill='grey90')+
+  geom_sf(data=oh_cjest,aes(fill= cut(CC, breaks =c(-1,1,2,3,4,9))),color='transparent')+
+  scale_fill_manual(values = palette, labels = c('1','2','3','4','5+'),name="Number of Burden Categories above threshold",
+                    guide = guide_legend(direction = "horizontal",
+                                         title.position = "top"))+
+  geom_sf(data=oh_counties,fill='transparent',color='grey70')+
+  ggtitle("Climate and Env. Justice Screening Tool (CEJST)")+
+  theme_void()+
+  theme(legend.position="bottom")
+```
+
+## Center for Disease Control and Prevention (CDC)
+
+### Social Vulnerability Index (SVI)
+
+The CDC Social Vulnerability Index attempts to measure the negative effects on communities caused by stressors on human health. The dataset is intended to help officials identify communities which may need support after a natural disaster. The Index is based on 16 variables from the American Community Survey (ACS) dataset from the U.S. Census Bureau including socio-economic characteristics (e.g: income level, unemployment rate, housing cost burden), household characteristics (i.e: population age 65+, population 17 and younger, disabled population), Racial and Ethnic Minority Status, and Housing and Transportation characteristics. **The dataset does include environmental risk factors in the index**. 
+
+The SVI is calculated at the census tract level, and is converted to a percentile to allow easier comparison across tracts. For each census tract, a percentile is calculated at the national and the state level. State level percentile should be used for state level analysis. 
+
+The SVI map below for Ohio shows census tracts which are above the 50th percentile (i.e: the top 50% or top half). Census tracts which fall into a higher percentile are shown in a darker color green. The CDC does not provide specific cutoffs for working with the data and does not provide any specific threshold for what constitutes an environmental justice area. The 50th percentile threshold was selected by the author as dividing the data into quartiles and halfs is a common approach for working with the data.
+
+``` {r test_map5}
+ggplot()+
+  geom_sf(data=oh_counties,fill='grey90')+
+  geom_sf(data=OH_CDC_SVI_Index %>% dplyr::filter(Overall_SVI_Percentile > 0.50),aes(fill=Overall_SVI_Percentile * 100),color='transparent')+
+  geom_sf(data=oh_counties,fill='transparent',color='grey70')+
+  scale_fill_gradient(low='lightyellow',high='darkgreen',name='CDC SVI State Percentile')+
+  ggtitle("2020 CDC SVI, Tracts above 50th Percentile")+
+  theme_void()+
+  theme(legend.position="bottom")
+```
+
+### Environmental Justice Index (EJI)
+
+The CDC Environmental Justice Index is intended to be used by public health officials, policy makers, and can be used to respond to environmental and social factors that affect community well-being. Some uses which the CDC recommends include identifying areas that may require special attention or additional action to improve health and health equity, educate and inform the public about their community, and analyzing local factors driving cumulative impacts on health. The EJI dataset is not intended to be used for identifying environmental justice communities, or as a tool for characterizing all environmental justice issues. Unlike many of the other environmental justice related datasets shown so far, the EJI is a single index (unlike the EPA Index and CJEST which include multiple indexes). 
+
+The EJI Index is made up of three sub components: Social Vulnerability, Environmental Burden, and Health Vulnerability and each component is weighted equally. The social vulnerability component of the EJI includes very similar indicators to those included in the CDC SVI. The Environmental Burden component includes 17 indicators of environmental vulnerability, and the health vulnerability component includes 5 indicators of health vulnerability. The EJI appears to be similar to some of the environmental justice indexes developed at the state level, including those developed in California, Michigan, and Pennsylvania. 
+Similar to the CDC SVI, the CDC EJI is calculated at the census tract level and converted to a percentile to allow easier comparisons across tracts. However, only national percentiles are available for the EJI. The EJI map below shows census tracts in Ohio where the EJI National Percentile is above 75% (i.e: the top 25% highest in the nation). Census tracts which fall into a higher percentile are shown in a darker color green. Similar to the SVI, the EJI does not provide specific cutoffs for working with the data and does not provide any specific threshold for what constitutes an enviromentally burdened area. The 75th percentile threshold was selected by the author as dividing the data into quartiles or halfs is a common approach for working with the data. The 50% percent threshold was not used because it resulted in a very large number of tracts being visible in the map. 
+
+``` {r test_map6}
+ggplot()+
+  geom_sf(data=oh_counties,fill='grey90')+
+  geom_sf(data=OH_CDC_EJI_Index %>% dplyr::filter(RPL_EJI > 0.75),aes(fill=RPL_EJI *100),color='transparent')+
+  geom_sf(data=oh_counties,fill='transparent',color='grey70')+
+  scale_fill_gradient(low='lightyellow',high='darkgreen',name='CDC EJI National Percentile')+
+  ggtitle("2022 CDC EJI, Tracts above 75th Percentile")+
+  theme_void()+
+  theme(legend.position="bottom")
+```
+
+
+
